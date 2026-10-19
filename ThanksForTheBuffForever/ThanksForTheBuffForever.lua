@@ -97,14 +97,35 @@ local function Message(text)
     print("|cff80d0ffThanks for the Buff Forever:|r " .. text)
 end
 
+-- GetTime() is the start time of the current frame, so it is stale at
+-- PLAYER_ENTERING_WORLD after a loading screen and jumps forward on the next
+-- frame. Time the quiet windows with a clock read at call time instead.
+local function Clock()
+    if type(GetTimePreciseSec) == "function" then return GetTimePreciseSec() end
+    return GetTime()
+end
+
+-- Seconds of slack between a buff landing and the scan that sees it.
+local FRESH_SLACK = 5
+
+-- A buff someone has just cast has (nearly) its full duration left. A buff
+-- carried over from the last session, or one that loaded late after a loading
+-- screen, has already run down and must not be thanked as new.
+local function JustApplied(aura, now)
+    local duration, expiry = aura.duration, aura.expirationTime
+    if not Public(duration) or type(duration) ~= "number" or duration <= 0 then return true end
+    if not Public(expiry) or type(expiry) ~= "number" or expiry <= 0 then return true end
+    return expiry - now >= duration - FRESH_SLACK
+end
+
 local function GetAura(index)
     if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
         return C_UnitAuras.GetAuraDataByIndex("player", index, "HELPFUL")
     elseif UnitBuff then
-        local name, _, _, _, _, expirationTime, source, _, _, spellId = UnitBuff("player", index)
+        local name, _, _, _, duration, expirationTime, source, _, _, spellId = UnitBuff("player", index)
         if not Public(name) then return {} end
         if not name then return nil end
-        return { name=name, sourceUnit=source, spellId=spellId, expirationTime=expirationTime }
+        return { name=name, sourceUnit=source, spellId=spellId, duration=duration, expirationTime=expirationTime }
     end
     lastIssue = "No supported buff-reading API on this client."
     Log("API_ERROR",lastIssue)
@@ -244,8 +265,10 @@ end
 
 local function Scan()
     local now = GetTime()
+    local quietLeft = math.max(0,quietUntil-Clock())
+    local quiet = quietLeft > 0
     local current = {}
-    Log("SCAN","baseline",baseline,"quiet remaining",math.max(0,quietUntil-now))
+    Log("SCAN","baseline",baseline,"quiet remaining",quietLeft)
     for index=1,255 do
         local aura = GetAura(index)
         if not Public(aura) then Log("AURA_SKIP","Restricted aura data",index); break end
@@ -268,11 +291,15 @@ local function Scan()
             if not Public(expiry) or type(expiry) ~= "number" then expiry = 0 end
             current[auraKey] = expiry
             newAura = not seen[auraKey] or expiry > seen[auraKey] + 0.5
+            if newAura and not JustApplied(aura, now) then
+                newAura = false
+                Log("AURA_SKIP","Not freshly applied",name,"remaining",expiry-now,"duration",aura.duration)
+            end
         end
         if eligible and not PlainString(unit) then
             detectionStatus = name .. ": the client did not provide an identifiable caster."
             Log("UNIDENTIFIED",detectionStatus)
-            if newAura and not baseline and now >= quietUntil then
+            if newAura and not baseline and not quiet then
                 local own = UnitGUID("player")
                 if not PlainString(casterGUID) then
                     -- Only unidentified effects need the known-gift allowlist.
@@ -291,7 +318,7 @@ local function Scan()
             Log("CASTER",unit,guid,"is player",isPlayer,"self",Public(guid) and Public(own) and guid==own)
             if not Public(isPlayer) or not isPlayer or not PlainString(guid) then
                 detectionStatus = name .. ": the caster unit could not be resolved to a player."
-                if not PlainString(guid) and newAura and not baseline and now >= quietUntil and KnownGift(name, spellId) then
+                if not PlainString(guid) and newAura and not baseline and not quiet and KnownGift(name, spellId) then
                     QueueThanks(nil,"unknown-caster",now)
                 end
             end
@@ -303,8 +330,8 @@ local function Scan()
                     current[key] = expiration
                     -- A recast extends the existing aura without removing it first.
                     local refreshed = seen[key] and expiration > seen[key] + 0.5
-                    Log("CANDIDATE",name,guid,"previous expiry",seen[key],"refreshed",refreshed,"baseline",baseline,"quiet",now < quietUntil)
-                    if not baseline and now >= quietUntil and newAura then
+                    Log("CANDIDATE",name,guid,"previous expiry",seen[key],"refreshed",refreshed,"baseline",baseline,"quiet",quiet)
+                    if not baseline and not quiet and newAura then
                         detectionStatus = "Detected " .. name .. " from another player."
                         if ns.OfferBuffBack then
                             local ok, reason = pcall(ns.OfferBuffBack, unit, guid)
@@ -413,12 +440,12 @@ frame:SetScript("OnEvent", function(_, event, unit, ...)
         Log("BLOCKED_ACTION",unit,...)
     elseif event == "PLAYER_ENTERING_WORLD" then
         CancelThanks()
-        active, baseline, quietUntil = true, true, GetTime() + 5
+        active, baseline, quietUntil = true, true, Clock() + 5
         SafeScan()
     elseif event == "PLAYER_LEAVING_WORLD" then CancelThanks(); active, baseline = false, true
     elseif event == "PLAYER_REGEN_DISABLED" then CancelThanks(); baseline = true
     elseif event == "PLAYER_REGEN_ENABLED" then
-        baseline, quietUntil = true, GetTime() + 2
+        baseline, quietUntil = true, Clock() + 2
         SafeScan()
     elseif event == "UNIT_AURA" and Public(unit) and unit == "player" then SafeScan() end
 end)
