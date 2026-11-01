@@ -1,3 +1,10 @@
+# Unreleased
+
+- Fix thanking on login for a buff carried over from the last session (for example Mark of the Wild still active after logging out).
+- The login and post-combat quiet windows now use a real-time clock: `GetTime()` is stale after a loading screen, so the 5-second window had already expired by the time aura data arrived.
+- Only buffs with close to their full duration remaining count as newly cast; run-down buffs that appear late are recorded but not thanked. Recasts that refresh a buff are still thanked.
+- All 14 offline test scripts passed, including a reproduction of the logged 2026-10-11 login thanks.
+
 # 0.4.4-beta
 
 - Fix missed thanks for Renew and other helpful effects when the giver is identified by player GUID without a visible unit.
@@ -39,7 +46,7 @@ Beta: offline checks pass; fallback delivery and rank cutoffs still need live ve
 
 # 0.3.0-beta
 
-- Added configurable overall and per-player thanks cooldowns (0�3600 seconds), applied immediately and saved between sessions.
+- Added configurable overall and per-player thanks cooldowns (0-3600 seconds), applied immediately and saved between sessions.
 
 - Added a comma-separated extra-emote field for Random mode, with client emote/alias validation, deduplication, and saved choices.
 
