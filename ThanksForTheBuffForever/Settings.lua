@@ -2,6 +2,8 @@ local _, ns = ...
 local panel, category, enabled, group, status, clickBuff, extraEmotes, extraStatus
 local choices, waits = {}, {}
 local directThanks, targetBuffBack
+local backPanel, backCategory, backDuration
+local backChecks = {}
 local options = {
     { "THANK", "Thank" }, { "CHEER", "Cheer" },
     { "BOW", "Bow" }, { "SALUTE", "Salute" }, { "APPLAUD", "Applaud" },
@@ -29,9 +31,14 @@ function ns.RefreshSettings()
     local db = ThanksForTheBuffForeverDB
     enabled:SetChecked(db.enabled)
     group:SetChecked(db.group)
-    clickBuff:SetChecked(db.clickBuff ~= false)
+    clickBuff:SetChecked(db.clickBuff == true)
     directThanks:SetChecked(db.directThanks ~= false)
     targetBuffBack:SetChecked(db.targetBuffBack ~= false)
+    if backPanel then
+        for key, check in pairs(backChecks) do check:SetChecked(db[key] == true) end
+        UIDropDownMenu_SetSelectedValue(backDuration, db.buffBackDuration)
+        UIDropDownMenu_SetText(backDuration, (db.buffBackDuration or 30) .. " seconds")
+    end
     if extraEmotes and not extraEmotes:HasFocus() then extraEmotes:SetText(db.extraEmoteText or "") end
     for key, field in pairs(waits) do
         UIDropDownMenu_SetSelectedValue(field, db[key])
@@ -46,6 +53,54 @@ function ns.RefreshSettings()
         if db.emote == "RANDOM" and value ~= "RANDOM" then checked = db.randomEmotes[value] end
         button:SetChecked(checked)
     end
+end
+
+function ns.OpenBuffBackSettings()
+    if not backPanel then
+        backPanel = CreateFrame("Frame", "ThanksForTheBuffForeverBuffBackSettings")
+        backPanel.name = "Thanks for the Buff Forever - Buff back"
+        Text(backPanel, "Buff back", 16, -16, "GameFontNormalLarge")
+        Text(backPanel, "Optional. No prompt or extra screen panel is shown by default.", 20, -50)
+        local fields = {
+            {"buffBack", "Enable buff back"},
+            {"buffBackPrompt", "Show the buff-back button"},
+            {"buffBackQueue", "Remember up to five givers"},
+            {"buffBackSkipPvP", "Avoid flagged players while I am unflagged"},
+            {"targetBuffBack", "Select the giver when buffing (otherwise keep my target)"},
+        }
+        for i, field in ipairs(fields) do
+            local key = field[1]
+            backChecks[key] = Check(backPanel, field[2], 16, -76-i*34, function(value) ns.SetOption(key,value) end)
+        end
+        Text(backPanel, "Keep offers for", 20, -284)
+        backDuration = CreateFrame("Frame", "ThanksForTheBuffForeverBuffBackDuration", backPanel, "UIDropDownMenuTemplate")
+        backDuration:SetPoint("TOPLEFT", 170, -276)
+        UIDropDownMenu_SetWidth(backDuration,130)
+        UIDropDownMenu_Initialize(backDuration,function()
+            for _, seconds in ipairs({5,10,15,30,60,120}) do
+                local value=seconds
+                local info=UIDropDownMenu_CreateInfo()
+                info.text=value .. " seconds"; info.value=value
+                info.checked=ThanksForTheBuffForeverDB.buffBackDuration==value
+                info.func=function() ns.SetOption("buffBackDuration",value) end
+                UIDropDownMenu_AddButton(info)
+            end
+        end)
+        Text(backPanel, "Set 'Buff back next giver' in Key Bindings > Thanks for the Buff Forever.", 20, -328, "GameFontHighlightSmall")
+        Text(backPanel, "The key works with the button hidden. One press buffs one giver, out of combat.", 20, -350, "GameFontHighlightSmall")
+        Text(backPanel, "Offers expire and clear on combat or loading. /tftbf status shows why an offer waits.", 20, -372, "GameFontHighlightSmall")
+        local dismiss=CreateFrame("Button",nil,backPanel,"UIPanelButtonTemplate")
+        dismiss:SetSize(170,24); dismiss:SetPoint("TOPLEFT",20,-410); dismiss:SetText("Dismiss current giver")
+        dismiss:SetScript("OnClick",function() if ns.DismissBuffBack then ns.DismissBuffBack() end end)
+        backPanel:SetScript("OnShow",ns.RefreshSettings)
+        if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
+            backCategory=Settings.RegisterCanvasLayoutCategory(backPanel,backPanel.name)
+            Settings.RegisterAddOnCategory(backCategory)
+        elseif InterfaceOptions_AddCategory then InterfaceOptions_AddCategory(backPanel) end
+    end
+    ns.RefreshSettings()
+    if backCategory and Settings and Settings.OpenToCategory then Settings.OpenToCategory(backCategory:GetID())
+    elseif InterfaceOptionsFrame_OpenToCategory then InterfaceOptionsFrame_OpenToCategory(backPanel) end
 end
 
 local function RegisterPanel()
@@ -114,12 +169,18 @@ local function RegisterPanel()
     clickBuff = Check(panel, "Buff buttons for selected targets", 16, -511, function(value) ns.SetOption("clickBuff", value) end)
     directThanks = Check(panel, "Direct thanks at the buff giver", 16, -543, function(value) ns.SetOption("directThanks", value) end)
     targetBuffBack = Check(panel, "Target the giver when clicking Buff Back", 16, -575, function(value) ns.SetOption("targetBuffBack", value) end)
+    local backOptions=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
+    backOptions:SetSize(100,24); backOptions:SetPoint("TOPLEFT",398,-575); backOptions:SetText("Buff back...")
+    backOptions:SetScript("OnClick",ns.OpenBuffBackSettings)
     Text(panel, "Checkboxes save automatically. Extra emotes: Enter or Save.", 20, -615, "GameFontHighlightSmall")
     local advanced = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     advanced:SetSize(100,24)
     advanced:SetPoint("TOPLEFT", 398, -511)
     advanced:SetText("Advanced")
     advanced:SetScript("OnClick", function() ns.OpenAdvanced() end)
+    local messages = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    messages:SetSize(100,24); messages:SetPoint("TOPLEFT",398,-543); messages:SetText("Messages...")
+    messages:SetScript("OnClick",function() ns.OpenMessages() end)
     panel:SetScript("OnShow", ns.RefreshSettings)
     if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
         category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)

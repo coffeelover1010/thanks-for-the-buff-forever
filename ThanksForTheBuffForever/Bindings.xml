@@ -1,3 +1,4 @@
 <Bindings>
     <Binding name="CLICK ThanksForTheBuffForeverMouseover:LeftButton" category="BINDING_HEADER_THANKSBUFFFOREVER" />
+    <Binding name="CLICK ThanksForTheBuffForeverBuffBackKey:LeftButton" category="BINDING_HEADER_THANKSBUFFFOREVER" />
 </Bindings>

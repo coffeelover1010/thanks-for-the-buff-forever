@@ -210,6 +210,19 @@ local function Thank(unit, guid, now)
         Skip("Directed thanks skipped: the buff giver is unavailable."); return
     end
     if fallback then Log("FALLBACK","General thanks: caster unavailable.") end
+    if ns.PrepareMessage then
+        local mode, text, recipient, issue = ns.PrepareMessage(unit, recipientName)
+        if mode then
+            if not text then Skip(issue); return end
+            cooldowns[guid], lastThanks = now, now
+            local send = SendChatMessage or (C_ChatInfo and C_ChatInfo.SendChatMessage)
+            local ok, err = pcall(send, text, mode, nil, recipient)
+            Log(ok and "MESSAGE_RETURN" or "MESSAGE_ERROR", ok and "Delivery not confirmed." or err)
+            thanksStatus = ok and "Message requested; check chat for delivery." or "Client rejected the message."
+            if not ok then lastIssue = "The client blocked a custom message." end
+            return
+        end
+    end
     if type(DoEmote) ~= "function" then
         lastIssue = "DoEmote is unavailable on this client."; Log("API_ERROR",lastIssue)
         return
@@ -267,13 +280,14 @@ local function Scan()
     local now = GetTime()
     local quietLeft = math.max(0,quietUntil-Clock())
     local quiet = quietLeft > 0
-    local current = {}
+    local current, complete = {}, true
     Log("SCAN","baseline",baseline,"quiet remaining",quietLeft)
     for index=1,255 do
         local aura = GetAura(index)
-        if not Public(aura) then Log("AURA_SKIP","Restricted aura data",index); break end
+        if not Public(aura) then complete=false; Log("AURA_SKIP","Restricted aura data",index); break end
         if not aura then break end
         local name, spellId, unit = aura.name, aura.spellId, aura.sourceUnit
+        if not Public(name) or not Public(spellId) then complete=false end
         Log("AURA",index,name,spellId,"source",unit,"expires",aura.expirationTime,
             "filter","HELPFUL")
         -- Honorless Target is a system effect, not a gift from another player.
@@ -287,10 +301,17 @@ local function Scan()
         local newAura = false
         if eligible then
             local auraKey = "aura:" .. name
+            -- An instance distinguishes two simultaneous effects with the same
+            -- localized name. Older clients retain the name-based fallback.
+            local instanceID = aura.auraInstanceID
+            if Public(instanceID) and type(instanceID)=="number" and Public(spellId) and type(spellId)=="number" then
+                auraKey = "instance:" .. instanceID .. ":" .. spellId
+            elseif not Public(instanceID) then complete=false end
             local expiry = aura.expirationTime
             if not Public(expiry) or type(expiry) ~= "number" then expiry = 0 end
             current[auraKey] = expiry
             newAura = not seen[auraKey] or expiry > seen[auraKey] + 0.5
+            if not Public(instanceID) then newAura=false end
             if newAura and not JustApplied(aura, now) then
                 newAura = false
                 Log("AURA_SKIP","Not freshly applied",name,"remaining",expiry-now,"duration",aura.duration)
@@ -344,7 +365,11 @@ local function Scan()
             end
         end
     end
-    seen, baseline = current, false
+    -- A restricted read is not evidence that an old aura disappeared.
+    if not complete then
+        for key, expiry in pairs(seen) do if current[key]==nil then current[key]=expiry end end
+    end
+    seen, baseline = current, baseline and not complete
     for guid, thankedAt in pairs(cooldowns) do
         if now-thankedAt >= 3600 then cooldowns[guid] = nil end
     end
@@ -374,7 +399,12 @@ local function Init()
     if type(db.enabled) ~= "boolean" then db.enabled = true end
     if type(db.group) ~= "boolean" then db.group = false end
     if type(db.directThanks) ~= "boolean" then db.directThanks = true end
-    if type(db.targetBuffBack) ~= "boolean" then db.targetBuffBack = true end
+    if type(db.targetBuffBack) ~= "boolean" then db.targetBuffBack = false end
+    for key, default in pairs({buffBack=false, buffBackPrompt=false, buffBackQueue=false, buffBackSkipPvP=true}) do
+        if type(db[key]) ~= "boolean" then db[key] = default end
+    end
+    if type(db.buffBackDuration) ~= "number" or db.buffBackDuration ~= db.buffBackDuration then db.buffBackDuration = 30 end
+    db.buffBackDuration = math.floor(math.max(5, math.min(120, db.buffBackDuration)))
     if type(db.emote) ~= "string" or not allowed[db.emote] then db.emote = "THANK" end
     if type(db.randomEmotes) ~= "table" then
         db.randomEmotes = {}
@@ -398,8 +428,11 @@ end
 -- Both slash commands and the settings window use the same live settings path.
 function ns.SetOption(key, value)
     if not ready then return end
-    if key == "enabled" or key == "group" or key == "clickBuff" or key == "directThanks" or key == "targetBuffBack" then
+    if key == "enabled" or key == "group" or key == "clickBuff" or key == "directThanks" or key == "targetBuffBack"
+        or key == "buffBack" or key == "buffBackPrompt" or key == "buffBackQueue" or key == "buffBackSkipPvP" then
         if type(value) ~= "boolean" then return end
+    elseif key == "buffBackDuration" then
+        if type(value) ~= "number" or value ~= value or value < 5 or value > 120 or value ~= math.floor(value) then return end
     elseif key == "thanksDelay" or key == "thanksInterval" or key == "playerInterval" then
         if type(value) ~= "number" or value ~= value or value < 0 or value > 3600 or value ~= math.floor(value) then return end
     elseif key == "emote" then
@@ -411,6 +444,7 @@ function ns.SetOption(key, value)
     if key == "enabled" then CancelThanks(); baseline = true; SafeScan() end
     if key == "thanksDelay" then CancelThanks() end
     if key == "clickBuff" and ns.RefreshClickBuff then ns.RefreshClickBuff() end
+    if ns.RefreshBuffBack and (key:match("^buffBack") or key == "enabled" or key == "targetBuffBack") then ns.RefreshBuffBack(true) end
     if ns.RefreshSettings then ns.RefreshSettings() end
 end
 
@@ -467,6 +501,8 @@ SlashCmdList.THANKSBUFFFOREVER = function(msg)
     local db = ThanksForTheBuffForeverDB
     if command == "" or command == "OPTIONS" or command == "SETTINGS" then
         if ns.OpenSettings then ns.OpenSettings() end
+    elseif command == "MESSAGES" then
+        if ns.OpenMessages then ns.OpenMessages() end
     elseif command == "ON" or command == "OFF" then
         ns.SetOption("enabled", command == "ON")
         Message(db.enabled and "Enabled." or "Disabled.")
@@ -494,6 +530,7 @@ SlashCmdList.THANKSBUFFFOREVER = function(msg)
         Message("Detection: " .. detectionStatus)
         Message("Last buff-back check: " .. backStatus)
         if ns.GetClickBuffStatus then Message("Buff helper: " .. ns.GetClickBuffStatus()) end
+        if ns.GetBuffBackStatus then Message("Buff back: " .. ns.GetBuffBackStatus()) end
     else
         Message("/tftbf on | off | thank | cheer | bow | salute | applaud | wave | nod | kiss | dance | random")
         Message("/tftbf group on | group off | status | log | log clear | log on | log off")

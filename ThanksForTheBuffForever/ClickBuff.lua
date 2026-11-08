@@ -28,6 +28,7 @@ end
 local helperStatus = "Waiting for login."
 BINDING_HEADER_THANKSBUFFFOREVER = "Thanks for the Buff Forever"
 _G["BINDING_NAME_CLICK ThanksForTheBuffForeverMouseover:LeftButton"] = "Buff mouseover (out of combat)"
+_G["BINDING_NAME_CLICK ThanksForTheBuffForeverBuffBackKey:LeftButton"] = "Buff back next giver (out of combat)"
 -- Single-target, reagent-free buffs only. Prefer the highest learned rank.
 local families = {
     MAGE = {{1459,1460,1461,10156,10157}},
@@ -239,7 +240,7 @@ local events = CreateFrame("Frame")
 for _, event in ipairs({"PLAYER_LOGIN", "SPELLS_CHANGED", "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD", "PLAYER_TARGET_CHANGED"}) do events:RegisterEvent(event) end
 events:SetScript("OnEvent", function()
     if not ThanksForTheBuffForeverDB or InCombatLockdown() then return end
-    if ThanksForTheBuffForeverDB.clickBuff == nil then ThanksForTheBuffForeverDB.clickBuff = true end
+    if ThanksForTheBuffForeverDB.clickBuff == nil then ThanksForTheBuffForeverDB.clickBuff = false end
     Create()
     local ok = pcall(Rebuild)
     if not ok then spells = {} end
@@ -260,5 +261,5 @@ ns.GetMissingBuff = function(unit)
     if not spell then return nil, "No learned buff rank available for this player level." end
     local present = HasBuff(unit,spell)
     if present == false then return spell end
-    return nil, present and ("Caster already has " .. spell.name .. ".") or "Caster buffs are unreadable."
+    return nil, present and ("Caster already has " .. spell.name .. ".") or "Caster buffs are unreadable.", present and "present" or "unreadable"
 end

@@ -1,6 +1,6 @@
 from test_click_buff import lua, root
 
-lua.execute('mine="MAGE"; events.scripts.OnEvent(); units.target={guid="giver",class="PRIEST"}; auras.target={}; now=100')
+lua.execute('mine="MAGE"; events.scripts.OnEvent(); units.target={guid="giver",class="PRIEST"}; auras.target={}; now=100; ThanksForTheBuffForeverDB.buffBack=true; ThanksForTheBuffForeverDB.buffBackPrompt=true; ThanksForTheBuffForeverDB.buffBackDuration=10; ThanksForTheBuffForeverDB.targetBuffBack=true')
 lua.execute('assert(loadstring(...))("ThanksForTheBuffForever",ns)', (root/'ThanksForTheBuffForever'/'BuffBack.lua').read_text(encoding='utf-8'))
 lua.execute('''
 backEvents=frames[#frames]; backEvents.scripts.OnEvent(backEvents,"PLAYER_LOGIN")

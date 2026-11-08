@@ -2,7 +2,7 @@
 ## Title: Thanks for the Buff Forever
 ## Notes: Thanks nearby players for helpful buffs, with cooldowns to keep chat quiet.
 ## Author: Gogo1951; Forever port by Videocat
-## Version: 0.4.4-beta
+## Version: 0.6.0
 ## SavedVariables: ThanksForTheBuffForeverDB
 ## X-License: MIT
 
@@ -11,4 +11,5 @@ ThanksForTheBuffForever.lua
 ClickBuff.lua
 BuffBack.lua
 Rules.lua
+Messages.lua
 Settings.lua

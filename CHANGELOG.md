@@ -1,4 +1,21 @@
-# Unreleased
+# 0.6.0
+
+- Add optional whisper and custom-emote messages via Messages... or /tftbf messages.
+- Save multiple lines for your own race, chosen randomly, with General fallback.
+- Keep separate lists per mode and retain existing emote behavior by default.
+- Resolve whisper recipients with realm names and reuse existing thanks cooldowns, including failed sends.
+- All 18 offline test scripts pass. Live editor layout and message delivery remain unverified.
+
+# 0.5.0-beta
+
+- Buff back is now opt-in, with a separate settings page. The optional prompt is off by default; its new keybinding works without a visible button.
+- Optional queue remembers up to five givers, deduplicated by GUID, with a 5-120 second offer duration. Right-click the prompt or use the settings button to dismiss a giver.
+- PvP checks are on by default for buff back and revalidated at the keypress. Offers wait when the recipient's flag cannot be read.
+- Direct buff-back casting keeps the current target by default. Explicit existing targeting preferences are preserved.
+- Failed clicks retain their offer. An observed buff on the recipient advances the queue; combat and loading clear it. Status is available through /tftbf status, with no extra overlay.
+- Target buff buttons default off for new settings; existing choices are preserved.
+- Track readable aura instance IDs and retain previous aura records through restricted scans, reducing false duplicate thanks. Renew and refresh detection remain supported.
+- Offline Lua tests cover the new controls and detection. Live-client keybinding, protected casting and settings layout still need verification.
 
 - Fix thanking on login for a buff carried over from the last session (for example Mark of the Wild still active after logging out).
 - The login and post-combat quiet windows now use a real-time clock: `GetTime()` is stale after a loading screen, so the 5-second window had already expired by the time aura data arrived.
