@@ -59,6 +59,8 @@ Supported classes: mage, priest, druid and paladin. Identity, availability, PvP 
 
 ## Verification
 
-Tests use Python and Lupa (Lua 5.1); these dependencies do not ship in the addon. Run tests/run.py, giving.py, buff_back.py, manual_reply.py and combinations.py. tests/package.py builds and verifies the release ZIP. User testing confirmed directed built-in emotes and clicked RP; offline tests do not reproduce every client restriction.
+Tests use Python and Lupa (Lua 5.1); these dependencies do not ship in the addon. Run buffy-tests/run.py, giving.py, buff_back.py, manual_reply.py and combinations.py. buffy-tests/package.py builds and verifies the release ZIP. User testing confirmed directed built-in emotes and clicked RP; offline tests do not reproduce every client restriction.
 
 MIT licensed. See LICENSE and BuffyLover/RETURN-NOTICE.md for attribution.
+
+Repository note: BuffyLover/ and buffy-tests/ contain the current addon and checks. ThanksForTheBuffForever/ and tests/ retain the previous addon implementation.
