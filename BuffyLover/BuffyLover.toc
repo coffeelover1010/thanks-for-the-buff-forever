@@ -1,0 +1,20 @@
+## Interface: 16001
+## Title: BuffyLover!
+## Notes: A quiet thank-you for a helpful buff.
+## Author: Videocat
+## X-License: MIT
+## X-Curse-Project-ID: 1712449
+## X-Website: https://www.curseforge.com/wow/addons/buffy-love
+## Version: 0.6.1
+## SavedVariables: BuffyLoverDB
+Buffs.lua
+Engine.lua
+Responses.lua
+GivingStyle.lua
+Settings.lua
+Giving.lua
+Caster.lua
+ReturnSpells.lua
+BuffBack.lua
+ManualReply.lua
+Client.lua

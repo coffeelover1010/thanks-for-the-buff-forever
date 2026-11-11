@@ -1,101 +1,113 @@
-# 0.6.0
+# 0.6.1 - 2026-11-11
 
-- Add optional whisper and custom-emote messages via Messages... or /tftbf messages.
-- Save multiple lines for your own race, chosen randomly, with General fallback.
-- Keep separate lists per mode and retain existing emote behavior by default.
-- Resolve whisper recipients with realm names and reuse existing thanks cooldowns, including failed sends.
-- All 18 offline test scripts pass. Live editor layout and message delivery remain unverified.
+- Make numeric settings compact; retain values on Enter, save on focus loss, restore invalid input, and support Escape, Up/Down and timing-field Tab navigation.
 
-# 0.5.0-beta
+- Clarify response setup and default replies; show character filters only when editing a character rule, with reply-type-specific help.
 
-- Buff back is now opt-in, with a separate settings page. The optional prompt is off by default; its new keybinding works without a visible button.
-- Optional queue remembers up to five givers, deduplicated by GUID, with a 5-120 second offer duration. Right-click the prompt or use the settings button to dismiss a giver.
-- PvP checks are on by default for buff back and revalidated at the keypress. Offers wait when the recipient's flag cannot be read.
-- Direct buff-back casting keeps the current target by default. Explicit existing targeting preferences are preserved.
-- Failed clicks retain their offer. An observed buff on the recipient advances the queue; combat and loading clear it. Status is available through /tftbf status, with no extra overlay.
-- Target buff buttons default off for new settings; existing choices are preserved.
-- Track readable aura instance IDs and retain previous aura records through restricted scans, reducing false duplicate thanks. Renew and refresh detection remain supported.
-- Offline Lua tests cover the new controls and detection. Live-client keybinding, protected casting and settings layout still need verification.
+- Set the per-player cooldown range to 0-2000 seconds; response delay remains 0-40 seconds.
 
-- Fix thanking on login for a buff carried over from the last session (for example Mark of the Wild still active after logging out).
-- The login and post-combat quiet windows now use a real-time clock: `GetTime()` is stale after a loading screen, so the 5-second window had already expired by the time aura data arrived.
-- Only buffs with close to their full duration remaining count as newly cast; run-down buffs that appear late are recorded but not thanked. Recasts that refresh a buff are still thanked.
-- All 14 offline test scripts passed, including a reproduction of the logged 2026-10-11 login thanks.
+- Raise the response-delay maximum to 40 seconds.
 
-# 0.4.4-beta
+- Fix buff-back status reporting disabled after login when the saved setting is enabled and no giver is pending.
+- Remove typing protection and its settings; chat input no longer delays or cancels replies.
 
-- Fix missed thanks for Renew and other helpful effects when the giver is identified by player GUID without a visible unit.
-- Fix the Buff mouseover keybinding category.
-- Preserve self, NPC, unknown-effect, group and duplicate filtering.
-- All 13 offline test scripts passed. User reports improved in-game thanking; protected casting and rank selection remain separately unverified.
+# 0.6.0 - 2026-11-10
 
-# 0.4.3-beta
+- Combine built-in emotes, custom RP and whispers with independent checkboxes.
+- Send all selected types, choose one randomly, or use a configurable priority order.
+- Preserve existing settings, reply lists and character rules during migration.
+- Offer a click-to-send button for custom RP outdoors, respecting the client input requirement.
+- Improve directed thanks to passing players without a selected target.
+- Add Responses, Saved rules, Buff count and Buff back settings pages.
+- Show saved-rule winners and visible response/style preview windows.
+- Add configurable typing wait and a bounded /buffy log activity history.
+- Use Nameplate font, white size-20 text, actual buff icon and "{count} toons buffed!" as the default count style.
 
-- Fix missed thanks when a buff giver has no target or nameplate unit: use their name from the buff caster GUID.
-- Keep directed thanks working when the giver's unit token disappears during the delay.
-- Preserve self-buff, group, cooldown and system-effect filters.
-- All 13 offline test scripts passed, including a reproduction of the missed Arcane Intellect case. In-game emote delivery still needs verification.
+Validated with offline Lua tests and user-reported in-game testing, including directed built-in emotes and click-to-send RP.
 
-# 0.4.2-beta
+# 0.5.0
 
-- Tries the buff caster GUID and unit-token lookup when the normal caster is missing.
-- Checks the resolved player's identity before applying emote rules or offering Buff Back.
-- Directed thanks stays quiet if the giver cannot be identified; undirected thanks respects the selected emote.
-- Explicitly ignores Campfire Nearby as well as Honorless Target.
-- Offline checks passed; live caster recovery still needs testing.
+- Add optional out-of-combat buff-back icons, disabled by default and independent of automatic thanks.
+- Add saved draggable placement, position reset, and a 5-120 second offer duration.
+- Offer learned, missing buffs for the identified giver; one physical click per cast, preserving the current target.
+- Revalidate recipient GUID, buff state and spell rank at click time; clear offers for combat/loading, expiry or dismissal.
+- Add offline regression coverage; live rendering and protected casting remain unverified.
 
-# 0.4.1-beta
+# Changelog
 
-- Honorless Target no longer triggers thanks or Buff Back.
-- General thanks now requires a recognised shareable buff when the giver is unknown, avoiding false thanks for unidentified food, drink, mounts and system effects.
-- New Forever buffs still work when their giver can be identified as another player.
-- Offline regression checks passed; in-game verification is still pending.
+## 0.4.4 — 2026-11-09
 
-# 0.4.0-beta
+- Suppress thanks during a five-second world-entry settling period and establish a final aura baseline.
+- Cancel queued thanks at loading-screen start and ignore stale transition timers.
+- Test empty/staggered entry snapshots and normal buffs after settling.
 
-- Thanks for any helpful buff, with a general thank-you when the giver is unknown.
-- More emotes and optional rules by class, gender and race.
-- Click-to-buff and Buff Back buttons with rank selection and targeting options.
-- Adjustable delays, cooldowns and party/raid inclusion.
-- Saved diagnostic logging.
+## 0.4.3 — 2026-11-09
 
-Beta: offline checks pass; fallback delivery and rank cutoffs still need live verification.
+- Add RP-first, built-in-first and Both response choices alongside single-channel modes.
+- Separate What to send from List to edit in settings and preview planned outputs.
+- Both shares one cooldown/delay and attempts each channel independently without retries.
 
-# 0.3.0-beta
+## 0.4.2 — 2026-11-09
 
-- Added configurable overall and per-player thanks cooldowns (0-3600 seconds), applied immediately and saved between sessions.
+- Accept zero cooldown in settings, slash commands and saved configuration.
+- Show timing validation/success next to the timing controls.
+- Keep duplicate-event suppression with cooldown zero.
 
-- Added a comma-separated extra-emote field for Random mode, with client emote/alias validation, deduplication, and saved choices.
+## 0.4.1 — 2026-11-09
 
-- Random emotes now use a saved selection of checked emotes, with at least one required. Random off restores the last single choice.
+- Add Buff being given icon choice, using the confirmed spell texture with safe text-only fallback.
+- Preview the most recently credited spell during this session.
 
-- Moved all settings into the native AddOns page; /tftbf and /buffthanks open that category directly.
+## 0.4.0 — 2026-11-09
 
-- Added a 10-second Buff back prompt for newly received supported buffs, with recipient identity checks and missing-buff filtering.
+- Hide floating rewards by default while continuing lifetime tracking.
+- Show the live lifetime total at the top of settings.
+- Add font, size, RGB colour, text format and optional icon controls with a local preview.
+- Preserve totals and save display preferences independently of tracking.
 
-- Added a configurable Buff mouseover key-binding entry with missing-buff checks and no target fallback, out of combat only.
+## 0.3.3 — 2026-11-09
 
-- Removed recipient-class and self exclusions from mage buff suggestions; added buff-helper diagnostics to `/tftbf status`.
+- Thank genuine rebuffs after the giver cooldown when a public expiration extension confirms renewal.
+- Keep duplicate notifications, login/recovery baselines and unavailable-expiry transitions suppressed.
 
-- Added a small missing-buff spell icon in the selected friendly player's target-frame aura row, with a gold + and click tooltip.
-- Matches supported ranks and names; hides while the buff is present, aura data is unreadable, the target is unsuitable, or combat is active.
-- Selects learned single-target buffs for mage, priest, druid and paladin with simple class presets.
-- Uses the next free aura slot, or the side of the row if occupied; never moves existing auras.
-- Explicit clicks only, with a final target and buff check before casting. Existing thanks preferences are preserved.
-- Offline checks passed; live casting, placement and combat/taint checks remain pending.
+## 0.3.2 — 2026-11-09
 
-# 0.2.0-beta
+- Add caster GUID/unit lookup and optional general THANK fallback with a shared cooldown.
+- Preserve secret-value guards, self/NPC filtering and refresh suppression.
 
-- Added a movable settings window with an on/off checkbox and clear status.
-- Choose random or a specific friendly emote, and include or exclude group members.
-- Open it with /tftbf, /buffthanks, or the game's AddOns settings page.
-- GUI and slash commands share saved settings. Existing choices are preserved.
-- In-game layout and behavior still need verification.
+## 0.3.1 — 2026-11-09
 
-# 0.1.0-beta
+- Replace reward sentences with a subtle number-only display.
+- Save account-wide lifetime total and full-name recipient deduplication.
+- Add sparkles every 10 and larger gold bursts plus optional level-up sound every 100.
+- Test persistence, milestone boundaries and effect cleanup.
 
-- First independent Forever port from Gogo1951's MIT-licensed TFTB.
-- Player-aura detection with restricted-data checks, instead of combat-log events.
-- Friendly emote choices, optional group thanks, and persistent settings.
-- 15-second overall and 90-second per-player cooldowns.
-- Offline checks passed. In-game Forever testing is still pending.
+## 0.3.0 â€” 2026-11-09
+
+- Reward giving recognised buffs with a distinct-player session counter and rising, fading text above a visible recipient nameplate.
+- Use named centre-screen feedback when a recipient nameplate is unavailable.
+- Confirm a successful cast against a readable recipient aura attributed to the player; skip failed, secret, unknown and self casts.
+- Add a settings toggle and `/buffy giving` to view the count. Reload/logout resets this session counter.
+
+## 0.2.0 â€” 2026-11-09
+
+- Add a BuffyLover! category in Options > AddOns, opened by `/buffy`.
+- Add built-in emote lists, custom RP emotes and optional whispers with full-name substitution.
+- Add fixed/random replies and saved rules for the responding character's class, race and gender.
+- Add 0â€“10-second response delays with identity revalidation and cancellation on combat, zoning and configuration changes.
+- Add local-only previews, message validation, and mocked response/settings tests.
+
+## 0.1.0 correction â€” 2026-11-09
+
+- Preserve Forever first name and surname using the client's complete-name helper instead of constructing a realm-style hyphenated name.
+- Recheck full name and GUID immediately before an emote attempt.
+- Add surname, Unicode and unavailable-name regression coverage.
+- Do not interpret the emote return value as delivery confirmation: generated documentation and Blizzard's slash handler disagree on its meaning.
+
+## 0.1.0 â€” 2026-11-09
+
+- Initial independent Forever addon, interface 16001.
+- Recognised-buff detection with verified player attribution and targeted thanks.
+- Login/recovery baselines, refresh suppression and per-player cooldowns.
+- Persistent slash-command settings and opt-in debug output.
+- Mocked Lua tests and a separate live-client checklist.
