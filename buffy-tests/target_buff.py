@@ -3,7 +3,7 @@ from pathlib import Path
 import runpy
 
 root = Path(__file__).resolve().parents[1]
-lua = runpy.run_path(str(root / 'tests/buff_back.py'))['lua']
+lua = runpy.run_path(str(Path(__file__).resolve().parent / 'buff_back.py'))['lua']
 lua.execute('''
 combat=false; mine="MAGE"; auras={}; BuffyLoverDB={}; UISpecialFrames={}
 units.target={guid="target-one",class="PRIEST"}
