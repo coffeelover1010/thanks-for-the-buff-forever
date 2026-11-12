@@ -2,11 +2,40 @@ local _, ns = ...
 local spells = {}
 -- Single-target, reagent-free buffs only. Prefer the highest learned rank.
 local families = {
-    MAGE = {{1459,1460,1461,10156,10157}},
+    MAGE = {{1459,1460,1461,10156,10157}, {604,8450,8451,10173,10174}},
     PRIEST = {{1243,1244,1245,2791,10937,10938}, {14752,14818,14819,27841}, {976,10957,10958}},
     DRUID = {{1126,5232,6756,5234,8907,9884,9885}, {467,782,1075,8914,9756,9910}},
     PALADIN = {{19740,19834,19835,19836,19837,19838,25291}, {19742,19850,19852,19853,19854,25290}},
 }
+-- Forever pets cannot receive stat buffs. Keep pet offers explicitly scoped.
+local petFamilies = {[604]=true, [467]=true}
+local function Pet(unit)
+    local player = UnitIsPlayer(unit)
+    if issecretvalue and issecretvalue(player) then return nil end
+    if player then return false end
+    local guid = UnitGUID(unit)
+    if issecretvalue and issecretvalue(guid) then return nil end
+    if type(guid)=="string" and guid:match("^Pet%-") then return true end
+    if UnitPlayerControlled then
+        local controlled=UnitPlayerControlled(unit)
+        if issecretvalue and issecretvalue(controlled) then return nil end
+        return controlled and true or false
+    end
+    return false
+end
+local function GroupPet(unit)
+    if not UnitIsUnit then return false end
+    for i=0,40 do
+        local token=i==0 and "pet" or "raidpet"..i
+        local same=UnitIsUnit(unit,token)
+        if (not issecretvalue or not issecretvalue(same)) and same then return true end
+        if i>0 and i<=4 then
+            same=UnitIsUnit(unit,"partypet"..i)
+            if (not issecretvalue or not issecretvalue(same)) and same then return true end
+        end
+    end
+    return false
+end
 local casters = {MAGE=true, PRIEST=true, WARLOCK=true}
 local function Public(v) return not issecretvalue or not issecretvalue(v) end
 local function Known(id)
@@ -29,6 +58,10 @@ local function Rebuild()
                 if Public(name) and type(name) == "string" then
                     local matchingIDs = {}
                     for _, id in ipairs(ranks) do matchingIDs[id] = true end
+                    -- Do not replace an existing Amplify Magic choice with Dampen.
+                    if ranks[1]==604 then
+                        for _,id in ipairs({1008,8455,10169,10170}) do matchingIDs[id]=true end
+                    end
                     local rank = C_Spell and C_Spell.GetSpellSubtext and C_Spell.GetSpellSubtext(ranks[i])
                     if not rank and GetSpellSubtext then rank = GetSpellSubtext(ranks[i]) end
                     local level = C_Spell and C_Spell.GetSpellLevelLearned and C_Spell.GetSpellLevelLearned(ranks[i])
@@ -37,16 +70,20 @@ local function Rebuild()
                     local castName = Public(rank) and type(rank) == "string" and rank ~= "" and (name .. "(" .. rank .. ")") or nil
                     if castName and Public(level) and type(level) == "number" then
                         spells[family][#spells[family]+1] = {id=ranks[i], family=family, name=name, castName=castName,
-                            icon=icon, matchingIDs=matchingIDs, minLevel=math.max(1,level-10)}
+                            icon=icon, baseID=ranks[1], matchingIDs=matchingIDs, minLevel=math.max(1,level-10)}
                     end
                 end
             end
         end
     end
 end
-local function Eligible(unit)
+local function Eligible(unit, allowNPCs)
+    local player = UnitIsPlayer(unit)
+    if not Public(player) then return false end
     local guid = UnitGUID(unit)
-    return Public(guid) and type(guid) == "string" and UnitIsPlayer(unit)
+    if not Public(guid) or type(guid) ~= "string" then return false end
+    if Pet(unit)==nil then return false end
+    return Public(guid) and type(guid) == "string" and (allowNPCs == true or player)
         and UnitCanAssist("player", unit)
         and not UnitIsDeadOrGhost(unit) and guid
 end
@@ -88,17 +125,25 @@ local function HasBuff(unit, spell)
     return nil
 end
 
-function ns.GetMissingBuffs(unit)
-    if not Eligible(unit) then return {}, "Giver is not an available living friendly player." end
+function ns.GetMissingBuffs(unit, allowNPCs)
+    if not Eligible(unit, allowNPCs) then return {}, "Target is not an eligible living friendly unit." end
     local level = UnitLevel(unit)
     if not Public(level) or type(level) ~= "number" or level < 1 then return {}, "Player level is unreadable." end
     local result, unreadable, learned = {}, false, false
     local _, class = UnitClass("player")
+    local pet = Pet(unit)
     local preferred = class == "PALADIN" and Pick(unit)
     for _, ranks in ipairs(spells) do
         for _, spell in ipairs(ranks) do
             if level >= spell.minLevel then
-                if class ~= "PALADIN" or spell == preferred then
+                local allowed = (class ~= "PALADIN" or spell == preferred)
+                if pet then
+                    allowed = petFamilies[spell.baseID] == true
+                    if spell.baseID==604 then allowed=allowed and GroupPet(unit) end
+                elseif spell.baseID==604 then
+                    allowed=false -- Dampen changes healing; do not add it to player/NPC offers.
+                end
+                if allowed then
                     learned = true
                     local present = HasBuff(unit,spell)
                     if present == false then result[#result+1] = spell end

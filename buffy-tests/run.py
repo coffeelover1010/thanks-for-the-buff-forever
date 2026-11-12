@@ -320,7 +320,7 @@ function CreateFrame(kind)
  widgets[#widgets+1]=w; return w
 end
 Settings={RegisterCanvasLayoutCategory=function(panel,name)
- assert(name=='BuffyLover!'); settingsPanel=panel; return {GetID=function() return 123 end}
+ assert(name=='BuffyLove'); settingsPanel=panel; return {GetID=function() return 123 end}
 end,RegisterCanvasLayoutSubcategory=function(parent,panel,name)
  assert(parent:GetID()==123)
  assert(name=='Buff count' or name=='Buff back' or name=='Saved rules' or name=='Responses')
@@ -353,6 +353,27 @@ end
 click('Apply timing'); assert(BuffyLoverDB.cooldown==0 and BuffyLoverDB.delay==0)
  click('Apply appearance'); click('Preview saved style')
 assert(ns.previewWindow.heading.text=='Saved buff-count style')
+click('Rank-up sound: Level up'); assert(BuffyLoverDB.givingSoundID==878)
+local previewedSound
+PlaySound=function(id,channel) previewedSound=id; assert(channel=='SFX') end
+click('Preview sound'); assert(previewedSound==878)
+ns.InitGivingStyle(BuffyLoverDB); assert(BuffyLoverDB.givingSoundID==878)
+local appearanceFields=0
+for _,w in ipairs(widgets) do
+ if w.kind=='EditBox' and rawget(w,'OnShow') and rawget(w,'OnEditFocusLost') then
+  w:OnShow(); local saved=w:GetText(); assert(saved and saved~='')
+  w:SetText(''); w:OnEditFocusLost(); assert(w:GetText()==saved)
+  w:SetText('draft'); w:OnEnterPressed(); assert(w:GetText()=='draft')
+  w:OnEscapePressed(); assert(w:GetText()==saved)
+  appearanceFields=appearanceFields+1
+ end
+end
+assert(appearanceFields==2)
+local beforeRankPreview=ns.GivingCount and ns.GivingCount() or 0
+click('Preview next rank')
+assert(ns.previewWindow.heading.text=='Next buff rank preview')
+assert(ns.previewWindow.message.text:find('PvPRank01',1,true))
+assert((ns.GivingCount and ns.GivingCount() or 0)==beforeRankPreview)
 click('Preview saved response')
 assert(ns.previewWindow.heading.text=='Saved response for this character')
 assert(ns.previewWindow.message.text:find('Kind Traveller',1,true))
@@ -410,3 +431,68 @@ for line in toc.splitlines():
     if line and not line.startswith('#'):
         assert (root / 'BuffyLover' / line).is_file()
 print('PASS: Lua 5.1; detection, RP rules, validation, whispers, delay cancellation, settings UI smoke and TOC.')
+
+lua.execute('''
+BuffyLoverDB.givingLifetime={total=233,people={Tester=true}}
+BuffyLoverDB.cooldown=123
+assert(not ns.ResetSettings('reset') and BuffyLoverDB.cooldown==123)
+combat=true; assert(not ns.ResetSettings('RESET'))
+combat=false; assert(ns.ResetSettings('RESET'))
+assert(BuffyLoverDB.cooldown==60)
+assert(BuffyLoverDB.givingLifetime.total==233 and BuffyLoverDB.givingLifetime.people.Tester)
+''')
+print('PASS: settings reset requires confirmation, blocks combat and preserves lifetime ledger.')
+
+# Wisdom detection uses the same path for every normal/greater rank.
+lua.execute('''
+local settings={enabled=true,group=true,cooldown=40}
+for _,id in ipairs({19742,19850,19852,19853,19854,25290,25894,25918}) do
+ assert(ns.buffs[id],"Wisdom rank missing")
+ local e=ns.NewEngine(); e:Accept({},0,settings)
+ assert(#e:Accept({{spell=id,guid="paladin",expires=3600}},10,settings)==1)
+end
+local output={}
+DEFAULT_CHAT_FRAME.AddMessage=function(_,message) output[#output+1]=message end
+combat=false; locked=false; fail=false
+auras={{spellId=19850,name="Blessing of Wisdom",sourceUnit="paladin"}}
+SlashCmdList.BUFFYLOVER("auras")
+assert(output[2]:find("ID=19850; recognised=true; caster=paladin",1,true))
+output={}; combat=true; SlashCmdList.BUFFYLOVER("auras")
+assert(#output==1 and output[1]:find("paused",1,true))
+combat=false
+''')
+print('PASS: all Wisdom rank IDs, engine eligibility and guarded live aura diagnostic.')
+
+lua.execute('''
+combat=false
+BuffyLoverDB.givingLifetime={total=999,people={Keep=true}}
+local ledger=BuffyLoverDB.givingLifetime
+BuffyLoverDB.cooldown=123; BuffyLoverDB.targetShape="circle"
+BuffyLoverDB.sendWhisper=true; BuffyLoverDB.responseStrategy="all"
+BuffyLoverDB.rules={{mode="rp",text="keep",class="ANY",race="ANY",gender="ANY"}}
+local rules=BuffyLoverDB.rules
+assert(not ns.ResetPageSettings("responses","no"))
+combat=true; assert(not ns.ResetPageSettings("responses","RESET")); combat=false
+assert(ns.ResetPageSettings("responses","RESET"))
+assert(BuffyLoverDB.sendEmote and not BuffyLoverDB.sendWhisper and BuffyLoverDB.responseStrategy=="priority")
+assert(BuffyLoverDB.cooldown==123 and BuffyLoverDB.rules==rules and BuffyLoverDB.targetShape=="circle")
+BuffyLoverDB.givingStyle={font="damage",size=40,text="custom",color="FF0000",icon="heart"}
+assert(ns.ResetPageSettings("count","RESET"))
+assert(BuffyLoverDB.givingStyle.size==20 and BuffyLoverDB.cooldown==123)
+assert(BuffyLoverDB.givingLifetime==ledger and ledger.total==999)
+assert(ns.ResetPageSettings("rules","RESET") and #BuffyLoverDB.rules==0)
+assert(BuffyLoverDB.cooldown==123)
+assert(ns.ResetPageSettings("general","RESET") and BuffyLoverDB.cooldown==60)
+assert(BuffyLoverDB.targetShape=="circle" and BuffyLoverDB.givingLifetime==ledger)
+assert(not ns.ResetPageSettings("typo","RESET"))
+local bindings={F8="CLICK BuffyLoverTargetBuff:LeftButton",F9="BUFFYLOVER_TARGET_SOURCES",SPACE="JUMP"}
+function GetBindingKey(command) for key,value in pairs(bindings) do if value==command then return key end end end
+function SetBinding(key) bindings[key]=nil end
+function GetCurrentBindingSet() return 2 end
+local saves=0
+function SaveBindings(set) assert(set==2); saves=saves+1 end
+assert(ns.ResetPageSettings("target","RESET"))
+assert(not bindings.F8 and not bindings.F9 and bindings.SPACE=="JUMP" and saves==1)
+assert(BuffyLoverDB.givingLifetime==ledger)
+''')
+print('PASS: page reset isolation, defaults, confirmation/combat guards, lifetime preservation and scoped shortcut clearing.')

@@ -1,3 +1,24 @@
+## 0.7.2 - 2026-11-12
+
+- Rename the displayed addon and CurseForge project to BuffyLove; retain the BuffyLover folder and saved settings.
+- Use nine lifetime rank milestones at 32, 128, 512, 1,204, 1,337, 2,048, 10,001, 32,768 and 100,001 unique players, with rank previews, selectable sounds and optional click-to-send rank emotes.
+- Add target-button placement and appearance controls, friendly NPC support, guarded pet spell offers, and range/usability checks.
+- Add confirmed count resets, page defaults and all-settings defaults; settings resets preserve lifetime progress.
+- Include the latest buff detection and settings corrections.
+
+Offline regression tests pass. Live-client rendering, protected casting and persistence have not been fully verified.
+
+## 0.7.1
+
+- Added lifetime buff ranks: one rank per 1,000 unique players, with PvP badges and progress in Buff count settings.
+- Added an enabled-by-default toggle for the rank badge beside the floating graphic.
+
+## 0.7.0
+
+- Added optional target buff casting with stationary cursor buttons and a configurable shortcut.
+- Added a target buff-source window, optional automatic display on target selection, and a separate shortcut.
+- Added Target buffs settings and standard Keybindings entries; existing key assignments are preserved on conflicts.
+- Offline tests pass. Live-client placement, keybindings and secure casting still require verification.
 # 0.6.1 - 2026-11-11
 
 - Make numeric settings compact; retain values on Enter, save on focus loss, restore invalid input, and support Escape, Up/Down and timing-field Tab navigation.

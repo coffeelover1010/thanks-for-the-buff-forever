@@ -4,7 +4,8 @@ local function update()
     if not frame then return end
     local item=queue[1]
     if not item then frame:Hide(); return end
-    frame.title:SetText("Thank "..item.name.." ("..#queue.." waiting)")
+    frame.title:SetText(item.title or ("Thank "..item.name.." ("..#queue.." waiting)"))
+    frame.send:SetText(item.button or "Send RP thanks")
     frame.text:SetText(item.text)
     frame:SetHeight(math.max(160,(frame.text:GetStringHeight() or 60)+100))
     frame:Show()
@@ -12,7 +13,7 @@ end
 function addon.ClearManualReplies()
     queue={}; update()
 end
-function addon.OfferManualReply(guid,name,text,valid,report)
+function addon.OfferManualReply(guid,name,text,valid,report,labels)
     if not frame then
         frame=CreateFrame("Frame",nil,UIParent,"BackdropTemplate")
         addon.manualReplyFrame=frame
@@ -51,6 +52,7 @@ function addon.OfferManualReply(guid,name,text,valid,report)
     end
     for _,item in ipairs(queue) do if item.guid==guid then return end end
     if #queue>=5 then report("RP reply queue full; skipped."); return end
-    queue[#queue+1]={guid=guid,name=name,text=text,valid=valid,report=report,expires=GetTime()+30}
+    queue[#queue+1]={guid=guid,name=name,text=text,valid=valid,report=report,expires=GetTime()+30,
+        title=labels and labels.title,button=labels and labels.button}
     update()
 end

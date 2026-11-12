@@ -12,7 +12,7 @@ local function plain(value, kind)
     return public(value) and type(value) == kind
 end
 local function say(message)
-    DEFAULT_CHAT_FRAME:AddMessage("BuffyLover! " .. message)
+    DEFAULT_CHAT_FRAME:AddMessage("BuffyLove " .. message)
 end
 local function record(message)
     if not BuffyLoverDB then return end
@@ -215,14 +215,73 @@ local function initialize()
     addon.InitResponses(BuffyLoverDB)
     addon.InitGivingStyle(BuffyLoverDB)
     if addon.InitBuffBack then addon.InitBuffBack(BuffyLoverDB) end
+    if addon.InitTargetBuff then addon.InitTargetBuff(BuffyLoverDB) end
     ready = true
     addon.CreateSettings()
+end
+local pageSettings = {
+    general={"enabled","group","random","debug","unknownThanks","cooldown","delay","replies","rules"},
+    responses={"mode","sendEmote","sendRP","sendWhisper","responseStrategy","responseOrder"},
+    count={"giving","showGiving","givingSound","givingSoundID","givingStyle","showGivingRank","rankEmote"},
+    back={"buffBack","buffBackDuration","buffBackX","buffBackY"},
+    rules={"rules"},
+    target={"targetBuff","targetCursor","targetSourcesAuto","targetNPCs","targetHideUnavailable","targetIconSize","targetOffsetX","targetOffsetY","targetPosition","targetShape","targetBorderWidth","targetBorderColor","targetOpacity"},
+}
+local function ResetTargetBindings()
+    if not GetBindingKey or not SetBinding or not SaveBindings then return end
+    for _,command in ipairs({"CLICK BuffyLoverTargetBuff:LeftButton","BUFFYLOVER_TARGET_SOURCES"}) do
+        for _,key in ipairs({GetBindingKey(command)}) do SetBinding(key) end
+    end
+    SaveBindings(GetCurrentBindingSet())
+end
+function addon.ResetPageSettings(page,confirmation)
+    if confirmation~="RESET" or InCombatLockdown() or not pageSettings[page] then return false end
+    for _,key in ipairs(pageSettings[page]) do BuffyLoverDB[key]=nil end
+    if page=="target" then ResetTargetBindings() end
+    initialize(); addon.ConfigurationChanged()
+    if addon.PlaceBuffBack then addon.PlaceBuffBack() end
+    if addon.RefreshSettings then addon.RefreshSettings() end
+    if addon.RefreshTargetSettings then addon.RefreshTargetSettings() end
+    return true
+end
+function addon.ResetSettings(confirmation)
+    if confirmation~="RESET" or InCombatLockdown() then return false end
+    ResetTargetBindings()
+    local lifetime=BuffyLoverDB.givingLifetime
+    BuffyLoverDB={givingLifetime=lifetime}
+    initialize()
+    addon.ConfigurationChanged()
+    if addon.PlaceBuffBack then addon.PlaceBuffBack() end
+    if addon.RefreshSettings then addon.RefreshSettings() end
+    if addon.RefreshTargetSettings then addon.RefreshTargetSettings() end
+    return true
 end
 SLASH_BUFFYLOVER1 = "/buffy"
 SlashCmdList.BUFFYLOVER = function(input)
     if not ready then return end
     local command, argument = input:lower():match("^%s*(%S*)%s*(.-)%s*$")
     if command == "" or command == "settings" then addon.OpenSettings(); return end
+    if command == "target" and addon.TargetBuffDiagnostic then say(addon.TargetBuffDiagnostic()); return end
+    if command == "auras" then
+        local ok, paused = pcall(blocked)
+        if not ok or paused then say("Aura check paused: combat or restricted API."); return end
+        local success = pcall(function()
+            say("Current buffs: spell ID / recognised / caster (no thanks sent by this check)")
+            for i=1,256 do
+                local aura=C_UnitAuras.GetAuraDataByIndex("player",i,"HELPFUL")
+                if not public(aura) then say("Aura information restricted."); return end
+                if not aura then return end
+                if plain(aura.spellId,"number") then
+                    local unit,unknown,guid,name=addon.ResolveCaster(aura)
+                    local caster=plain(name,"string") and name or (plain(unit,"string") and unit or (unknown and "unknown" or "unavailable"))
+                    local label=plain(aura.name,"string") and aura.name or "Buff"
+                    say(label..": ID="..aura.spellId.."; recognised="..tostring(addon.buffs[aura.spellId]==true).."; caster="..caster)
+                else say("Buff spell ID unavailable.") end
+            end
+        end)
+        if not success then say("Aura check failed; information unavailable.") end
+        return
+    end
     if command == "log" then
         local log=BuffyLoverDB.activityLog or {}
         say("Recent activity (API return values do not confirm delivery):")

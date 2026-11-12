@@ -3,18 +3,52 @@ local category, refresh
 function addon.OpenSettings()
     if category then Settings.OpenToCategory(category:GetID()) end
 end
+function addon.AddPageDefaults(panel,page)
+    local pending
+    local note=panel:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    note:SetPoint("BOTTOMLEFT",18,48); note:SetWidth(560); note:SetJustifyH("LEFT")
+    local buttons={}
+    local function clear()
+        pending=nil; note:SetText("")
+        buttons.page:SetText("Page defaults"); buttons.all:SetText("All settings defaults")
+    end
+    for i,mode in ipairs({"page","all"}) do
+        local action=mode
+        local b=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
+        b:SetSize(220,25); b:SetPoint("BOTTOMLEFT",18+(i-1)*232,14); buttons[action]=b
+        b:SetScript("OnClick",function()
+            if InCombatLockdown() then note:SetText("Leave combat before restoring defaults."); return end
+            if pending~=action then
+                clear(); pending=action; b:SetText("Confirm "..(action=="page" and "page" or "all settings").." defaults")
+                note:SetText(action=="all" and "Resets all settings, replies, rules and addon shortcuts. Count and rank are kept."
+                    or (page=="general" and "Resets this page, including saved reply lists and character rules. Count is kept."
+                    or page=="rules" and "Clears saved character rules. Default replies and other pages are kept."
+                    or page=="target" and "Resets target options, appearance, position and both shortcuts. Other pages are kept."
+                    or "Resets this page only. Other pages, lifetime count and rank are kept."))
+                return
+            end
+            if action=="all" then addon.ResetSettings("RESET") else addon.ResetPageSettings(page,"RESET") end
+            clear(); note:SetText("Defaults restored.")
+        end)
+    end
+    local cancel=CreateFrame("Button",nil,panel,"UIPanelButtonTemplate")
+    cancel:SetSize(90,25); cancel:SetPoint("BOTTOMLEFT",482,14); cancel:SetText("Cancel")
+    cancel:SetScript("OnClick",clear)
+    panel:HookScript("OnHide",clear)
+    clear()
+end
 function addon.CreateSettings()
     if category then return end
     local function page(height)
         local panel=CreateFrame("Frame")
         local scroll=CreateFrame("ScrollFrame",nil,panel,"UIPanelScrollFrameTemplate")
-        scroll:SetPoint("TOPLEFT",8,-8); scroll:SetPoint("BOTTOMRIGHT",-30,8)
+        scroll:SetPoint("TOPLEFT",8,-8); scroll:SetPoint("BOTTOMRIGHT",-30,86)
         local body=CreateFrame("Frame",nil,scroll)
         body:SetSize(620,height); scroll:SetScrollChild(body)
         return panel,body
     end
     local panel,body=page(1050)
-    local totalsPanel,totalsBody=page(550)
+    local totalsPanel,totalsBody=page(1080)
     local returnPanel,returnBody=page(260)
     local responsePanel,responseBody=page(600)
     local responseCategory
@@ -127,11 +161,96 @@ function addon.CreateSettings()
         end)
         restore()
     end
-    label("BuffyLover!", -10)
+    label("BuffyLove", -10)
     local totalLabel=body:CreateFontString(nil,"OVERLAY","GameFontHighlight")
     totalLabel:SetPoint("TOPRIGHT",body,"TOPRIGHT",-24,-10)
+    local rankLabel=totalsBody:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+    rankLabel:SetPoint("TOPLEFT",12,-520); rankLabel:SetWidth(580); rankLabel:SetJustifyH("LEFT")
+    local rankToggle=CreateFrame("CheckButton",nil,totalsBody,"UICheckButtonTemplate")
+    rankToggle:SetPoint("TOPLEFT",12,-580); rankToggle:SetSize(26,26)
+    local rankCaption=rankToggle:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+    rankCaption:SetPoint("LEFT",rankToggle,"RIGHT",4,0); rankCaption:SetText("Show rank badge beside the floating buff graphic")
+    rankToggle:SetScript("OnClick",function(self)
+        BuffyLoverDB.showGivingRank=self:GetChecked() and true or false
+        addon.ConfigurationChanged()
+        if refresh then refresh() end
+    end)
+    local rankHelp=totalsBody:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+    rankHelp:SetPoint("TOPLEFT",12,-620); rankHelp:SetWidth(580); rankHelp:SetJustifyH("LEFT")
+    rankHelp:SetText("Ranks: 32, 128, 512, 1,204, 1,337, 2,048, 10,001, 32,768, 100,001.\nLifetime unique players only. NPCs and repeat buffs do not count.")
+    local rankPreview=CreateFrame("Button",nil,totalsBody,"UIPanelButtonTemplate")
+    rankPreview:SetSize(220,25); rankPreview:SetPoint("TOPLEFT",18,-675); rankPreview:SetText("Preview next rank")
+    rankPreview:SetScript("OnClick",function()
+        local total=addon.GivingCount and addon.GivingCount() or 0
+        local rank=addon.GivingRank(total)
+        local nextTotal=addon.givingRankThresholds[rank+1] or addon.givingRankThresholds[#addon.givingRankThresholds]
+        local text,font,size,r,g,b=addon.GivingAppearance(nextTotal,addon.lastGivenSpell or 1459)
+        showPreview("Next buff rank preview",text.."\n\n"..addon.GivingRankSummary(nextTotal).."\n\nSample only. Your lifetime count is unchanged.\nFloating badge follows the rank badge toggle.",font,size,r,g,b)
+    end)
+    local soundSelect=CreateFrame("Button",nil,totalsBody,"UIPanelButtonTemplate")
+    soundSelect:SetSize(270,25); soundSelect:SetPoint("TOPLEFT",18,-720)
+    local function refreshSound()
+        for _,entry in ipairs(addon.givingSounds) do
+            if entry[1]==BuffyLoverDB.givingSoundID then soundSelect:SetText("Rank-up sound: "..entry[2]); return end
+        end
+    end
+    soundSelect:SetScript("OnClick",function()
+        local selected=1
+        for i,entry in ipairs(addon.givingSounds) do if entry[1]==BuffyLoverDB.givingSoundID then selected=i end end
+        BuffyLoverDB.givingSoundID=addon.givingSounds[selected % #addon.givingSounds+1][1]
+        refreshSound()
+    end)
+    local soundPreview=CreateFrame("Button",nil,totalsBody,"UIPanelButtonTemplate")
+    soundPreview:SetSize(160,25); soundPreview:SetPoint("LEFT",soundSelect,"RIGHT",12,0); soundPreview:SetText("Preview sound")
+    soundPreview:SetScript("OnClick",function() addon.PlayGivingSound() end)
+    local emote=CreateFrame("CheckButton",nil,totalsBody,"UICheckButtonTemplate")
+    emote:SetSize(26,26); emote:SetPoint("TOPLEFT",12,-770)
+    local emoteLabel=emote:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+    emoteLabel:SetPoint("LEFT",emote,"RIGHT",4,0); emoteLabel:SetText("Offer a custom emote when I earn a rank")
+    emote:SetScript("OnClick",function(self) BuffyLoverDB.rankEmote=self:GetChecked() and true or false; addon.ConfigurationChanged() end)
+    local resetMode
+    local confirm=CreateFrame("Frame",nil,totalsBody)
+    confirm:SetSize(580,160); confirm:SetPoint("TOPLEFT",12,-865)
+    local warning=confirm:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+    warning:SetPoint("TOPLEFT"); warning:SetWidth(560); warning:SetJustifyH("LEFT")
+    local phrase=CreateFrame("EditBox",nil,confirm,"InputBoxTemplate")
+    phrase:SetSize(140,25); phrase:SetPoint("TOPLEFT",8,-75); phrase:SetAutoFocus(false); phrase:SetFontObject(GameFontHighlight)
+    local commit=CreateFrame("Button",nil,confirm,"UIPanelButtonTemplate")
+    commit:SetSize(160,25); commit:SetPoint("LEFT",phrase,"RIGHT",12,0); commit:SetText("Confirm reset")
+    local cancel=CreateFrame("Button",nil,confirm,"UIPanelButtonTemplate")
+    cancel:SetSize(100,25); cancel:SetPoint("LEFT",commit,"RIGHT",12,0); cancel:SetText("Cancel")
+    cancel:SetScript("OnClick",function() confirm:Hide() end)
+    phrase:SetScript("OnTextChanged",function(self) commit:SetEnabled(self:GetText()=="RESET") end)
+    phrase:SetScript("OnEnterPressed",function(self) self:ClearFocus() end)
+    phrase:SetScript("OnEscapePressed",function() confirm:Hide() end)
+    confirm:SetScript("OnHide",function() resetMode=nil; phrase:SetText(""); phrase:ClearFocus(); commit:Disable() end)
+    commit:SetScript("OnClick",function()
+        if phrase:GetText()~="RESET" then return end
+        if InCombatLockdown() then warning:SetText("Leave combat before resetting. Type RESET, then click Confirm reset."); return end
+        local ok
+        if resetMode=="count" then ok=addon.ResetGivingCount("RESET")
+        elseif resetMode=="settings" then ok=addon.ResetSettings("RESET") end
+        if ok then confirm:Hide() end
+    end)
+    for i,entry in ipairs({{"count","Reset count"}}) do
+        local mode=entry[1]
+        local b=CreateFrame("Button",nil,totalsBody,"UIPanelButtonTemplate")
+        b:SetSize(240,25); b:SetPoint("TOPLEFT",18+(i-1)*252,-820); b:SetText(entry[2])
+        b:SetScript("OnClick",function()
+            resetMode=mode; phrase:SetText(""); commit:Disable()
+            warning:SetText(mode=="count" and "Reset the account-wide lifetime count, credited players and rank to zero?\nYour settings are kept. This cannot be undone.\nType RESET, then click Confirm reset."
+                or "Restore addon settings, appearance, positions and saved replies to defaults?\nYour lifetime count and rank are kept. Addon shortcuts are reset.\nType RESET, then click Confirm reset.")
+            confirm:Show(); phrase:SetFocus()
+        end)
+    end
+    confirm:Hide()
     function addon.UpdateGivingTotal()
-        totalLabel:SetText("Lifetime players buffed: "..(addon.GivingCount and addon.GivingCount() or 0))
+        local total=addon.GivingCount and addon.GivingCount() or 0
+        totalLabel:SetText("Lifetime players buffed: "..total)
+        rankLabel:SetText(addon.GivingRankSummary(total))
+        rankToggle:SetChecked(BuffyLoverDB.showGivingRank)
+        refreshSound()
+        emote:SetChecked(BuffyLoverDB.rankEmote)
     end
     check("Enable automatic thanks", "enabled", -40)
     check("Thank party and raid members", "group", -70)
@@ -139,9 +258,9 @@ function addon.CreateSettings()
     check("Debug messages", "debug", -130)
     check("Thank everyone when the buff giver cannot be identified", "unknownThanks", -1060)
     label("Unknown givers share one cooldown. This sends a general THANK, even in\nwhisper/RP mode. Unknown self or group sources cannot be excluded.", -1095)
-    check("Show floating buff total (hidden by default)", "showGiving", -930)
-    check("Play level-up sound at every 100", "givingSound", -1020)
-    label("Lifetime total: one credit per full player name, saved across reloads.\nEvery 10 sparkles; every 100 celebrates. /buffy giving shows the total.", -966)
+    check("Show floating buff total", "showGiving", -930)
+    check("Play sound when earning a rank", "givingSound", -1020)
+    label("Lifetime total: one credit per full player name, saved across reloads.\nEvery 10 sparkles; rank milestones celebrate. /buffy giving shows the total.", -966)
     label("Cooldown per player (0–2000 seconds)       Response delay (0–40 seconds)", -168)
     local cooldown, delay = edit(18,-193,130), edit(330,-193,130)
     local feedback = label("", -905)
@@ -184,6 +303,22 @@ function addon.CreateSettings()
     end)
     label("Text ({count} inserts your total)                 Font size (10-48)      Colour (hex)",-1210)
     local rewardText,rewardSize,rewardColor=edit(18,-1236,285),edit(330,-1236,95),edit(465,-1236,100)
+    local function restoreAppearanceField(field,key)
+        field:SetText(BuffyLoverDB.givingStyle[key])
+        field:SetCursorPosition(0)
+    end
+    for _,entry in ipairs({{rewardText,"text"},{rewardColor,"color"}}) do
+        local field,key=entry[1],entry[2]
+        field:SetFontObject(GameFontHighlight)
+        field:SetTextColor(1,1,1)
+        field:SetScript("OnShow",function(self) restoreAppearanceField(self,key) end)
+        field:SetScript("OnEnterPressed",function(self) self:ClearFocus() end)
+        field:SetScript("OnEscapePressed",function(self) restoreAppearanceField(self,key); self:ClearFocus() end)
+        field:SetScript("OnEditFocusLost",function(self)
+            if self:GetText()=="" then restoreAppearanceField(self,key) end
+            self:HighlightText(0,0); self:SetCursorPosition(0)
+        end)
+    end
     local rewardPreview=label("",-1320)
     local rewardFeedback=label("",-1360)
     numberField(rewardSize,10,48,true,function() return BuffyLoverDB.givingStyle.size end,function(v) BuffyLoverDB.givingStyle.size=v end,rewardFeedback)
@@ -198,6 +333,7 @@ function addon.CreateSettings()
         end
         local s=BuffyLoverDB.givingStyle
         s.text,s.size,s.color=text,math.floor(size),color:upper()
+        restoreAppearanceField(rewardText,"text"); restoreAppearanceField(rewardColor,"color")
         addon.ConfigurationChanged(); previewReward(); rewardFeedback:SetText("Appearance saved. Preview is local only.")
     end)
     button("Preview saved style",208,-1275,180,function()
@@ -206,9 +342,9 @@ function addon.CreateSettings()
         local text,font,size,r,g,b=addon.GivingAppearance(addon.GivingCount and addon.GivingCount() or 0,addon.lastGivenSpell or 1459)
         showPreview("Saved buff-count style",text,font,size,r,g,b)
     end)
-    label("Tracking continues while hidden. Hidden rewards make no sparkle or sound.\nFont size saves on Enter/click away; text and colour use Apply appearance.",-1400)
+    label("Tracking continues while hidden. Hidden rewards make no sparkle or sound.\nFont size saves on Enter/click away; text and colour use Apply appearance.\nText example: {count} toons buffed!\nColour examples: FFFFFF = white, FFD700 = gold, 00FF00 = green.",-1400)
     label("Buff back (out of combat)",-1470)
-    check("Offer clickable buffs for players who buff me (off by default)","buffBack",-1495)
+    check("Offer clickable buffs for players who buff me","buffBack",-1495)
     label("Show icons for (5-120 seconds)",-1530)
     local returnDuration=edit(18,-1555,130)
     updates[#updates+1]=function() returnDuration:SetText(tostring(BuffyLoverDB.buffBackDuration or 30)) end
@@ -231,7 +367,7 @@ function addon.CreateSettings()
         if InCombatLockdown() then returnFeedback:SetText("Leave combat before resetting the position."); return end
         addon.ResetBuffBackPosition()
     end)
-    label("1. Choose what BuffyLover sends",-245)
+    label("1. Choose what BuffyLove sends",-245)
     button("Enable / combine responses...",18,-268,240,function()
         if responseCategory then Settings.OpenToCategory(responseCategory:GetID()) end
     end)
@@ -277,7 +413,7 @@ function addon.CreateSettings()
             lines[#lines+1]=rule.text~="" and rule.text or "(empty - no reply)"
         end
         if #db.rules==0 then lines[#lines+1]="\nNo character rules saved. The general fallbacks are used." end
-        lines[#lines+1]="\nTo edit: open the main BuffyLover! page, use Default replies / Previous / Next, then Save list. Unsaved edits are not shown here."
+        lines[#lines+1]="\nTo edit: open the main BuffyLove page, use Default replies / Previous / Next, then Save list. Unsaved edits are not shown here."
         rulesText:SetText(table.concat(lines,"\n"))
         rulesBody:SetHeight(math.max(600,(rulesText:GetStringHeight() or 600)+40))
     end
@@ -356,14 +492,20 @@ function addon.CreateSettings()
     label("Save list before switching types or rules; unsaved edits are discarded.\nAn empty list sends nothing. Preview checks saved replies for this character.\nRules match YOUR character: most specific wins; ties use the earlier rule.\nCustom RP outdoors needs a click. Combat/loading/settings cancel pending replies.",-819)
     refresh=function()
         addon.UpdateGivingTotal()
-        rewardText:SetText(BuffyLoverDB.givingStyle.text)
+        restoreAppearanceField(rewardText,"text")
         rewardSize:SetText(tostring(BuffyLoverDB.givingStyle.size))
-        rewardColor:SetText(BuffyLoverDB.givingStyle.color)
+        restoreAppearanceField(rewardColor,"color")
         previewReward()
         cooldown:SetText(tostring(BuffyLoverDB.cooldown)); delay:SetText(tostring(BuffyLoverDB.delay)); load()
     end
+    addon.RefreshSettings=function()
+        selected=0
+        if refresh then refresh() end
+        for _,fn in ipairs(updates) do fn() end
+        updateRuleList()
+    end
     panel:SetScript("OnShow",refresh)
-    category=Settings.RegisterCanvasLayoutCategory(panel,"BuffyLover!")
+    category=Settings.RegisterCanvasLayoutCategory(panel,"BuffyLove")
     responseCategory=Settings.RegisterCanvasLayoutSubcategory(category,responsePanel,"Responses")
     Settings.RegisterCanvasLayoutSubcategory(category,totalsPanel,"Buff count")
     Settings.RegisterCanvasLayoutSubcategory(category,returnPanel,"Buff back")
@@ -371,6 +513,10 @@ function addon.CreateSettings()
     rulesPanel:SetScript("OnShow",updateRuleList)
     totalsPanel:SetScript("OnShow",refresh)
     returnPanel:SetScript("OnShow",refresh)
+    for _,entry in ipairs({{panel,"general"},{responsePanel,"responses"},{totalsPanel,"count"},{returnPanel,"back"},{rulesPanel,"rules"}}) do
+        addon.AddPageDefaults(entry[1],entry[2])
+    end
     Settings.RegisterAddOnCategory(category)
+    if addon.CreateTargetSettings then addon.CreateTargetSettings(category) end
     refresh()
 end

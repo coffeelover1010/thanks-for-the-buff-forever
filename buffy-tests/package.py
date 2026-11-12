@@ -4,7 +4,7 @@ from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 import hashlib
 
 root = Path(__file__).resolve().parents[1]
-output = root / 'dist/BuffyLover-0.6.1.zip'
+output = root / 'dist/BuffyLover-0.7.2.zip'
 output.parent.mkdir(exist_ok=True)
 files = [(p, 'BuffyLover/' + p.name) for p in sorted((root / 'BuffyLover').iterdir()) if p.is_file()]
 files += [(root / name, 'BuffyLover/' + name) for name in ('LICENSE', 'README.md', 'CHANGELOG.md', 'TESTING.md', 'RESEARCH.md')]

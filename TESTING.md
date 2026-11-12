@@ -6,7 +6,7 @@ In-game verification is pending. Run these in Forever with other auto-thank addo
 
 After the naming correction, `/reload`, then `/buffy debug`. Receive a fresh recognised buff (remove an existing one first and allow the cooldown to expire). Check that the diagnostic preserves the giver's full first name and surname and that the actual emote names that giver, rather than everyone. Repeat with a different current target or no target. Debug text confirms only the attempted recipient, not server delivery.
 
-1. Enable BuffyLover!, reload with existing buffs and check no thanks are sent. Check `/buffy status`; enable `/buffy debug` while diagnosing.
+1. Enable BuffyLove, reload with existing buffs and check no thanks are sent. Check `/buffy status`; enable `/buffy debug` while diagnosing.
 2. Out of combat, ask an identifiable non-group player for a listed buff. Confirm exactly one targeted thank names the correct caster. If no thanks occurs, note status, buff name and `/dump GetBuildInfo()` output; never infer successful delivery from a diagnostic alone.
 3. Ask for another listed buff immediately: no extra thanks. Refresh the original buff after 60 seconds while it remains active: still no thanks.
 4. Remove the buff, allow an aura update, wait beyond the cooldown and receive it again: one new thank. Receive two buffs together from the same caster: at most one thank.
@@ -21,7 +21,7 @@ Record client build, zone, group state, spell, observed caster availability and 
 
 ## 0.2.0 RP/settings checks
 
-1. Restart WoW after installation/removal. Confirm BuffyLover! appears in Options > AddOns and `/buffy` opens it. Scroll to the editor and check labels/buttons fit.
+1. Restart WoW after installation/removal. Confirm BuffyLove appears in Options > AddOns and `/buffy` opens it. Scroll to the editor and check labels/buttons fit.
 2. Test the three modes separately. For each, save a line containing `{name}`, receive a fresh buff after cooldown, and check the actual recipient/full surname. Custom emotes should follow your character name; whispers should go only to the giver.
 3. Toggle random replies with several lines and test over multiple eligible buffs. With random off, only the first line should be chosen.
 4. Add a rule matching your class, then a more specific race/gender rule. Preview the saved active mode locally and verify the more specific rule wins. Test fallback, an empty matching list, deletion and reload persistence.
@@ -78,3 +78,14 @@ Enter/leave an instance with existing buffs, including with zero cooldown: expec
 
 Run `uv run --with lupa python tests/buff_back.py` alongside `tests/run.py` and `tests/giving.py`.
 In game: confirm no prompt by default; enable buff back in /buffy, move the preview and reload to verify saved placement. Receive a fresh buff from a visible player. Verify each learned missing buff has an icon, each click casts only that buff on that giver, and your target stays unchanged. Test 5-second expiry, a failed/out-of-range cast, a changed target, partial/full buff completion, right-click dismissal, and combat/loading clearing all icons. Disable automatic thanks and verify buff-back still works. Check priest/druid multi-icon rows and low-level rank selection. No live checks are claimed complete.
+
+## 0.7.0 target buffs
+
+Offline: run tests/target_buff.py for target eligibility, missing buffs, PvP checks, combat guards, source attribution, settings, binding conflicts and window toggling.
+
+Live checks pending: reload (restart if the new Keybindings entries do not appear), enable target buffing and cursor buttons under Target buffs. Select a friendly player missing your buffs; verify the button stays below the selection-time cursor and each physical click casts one missing buff. Change target and repeat with the shortcut, then hide cursor buttons and repeat. Confirm combat prevents casting and buttons recover afterward. Verify dead/enemy/already-buffed targets do not cast. Use right-click on the spell icon and the source shortcut; check known and unavailable casters, target changes, scrolling and Escape. Save shortcuts through both settings and standard Keybindings, reload, and verify persistence.
+
+
+NPC targeting: with target buffing enabled, target a friendly NPC missing your buff and verify a spell is offered. Turn Allow buffing NPCs off and verify the action clears. Already-buffed, dead and hostile NPCs must not cast. NPC eligibility, toggle and exclusions pass offline; server acceptance still needs live testing.
+
+Rank checks: tests/giving.py verifies 999/1000 and 1999/2000 boundaries, saved lifetime totals, progress, badge reuse above rank 14 and persistent badge visibility. Live settings layout and badge rendering remain to be verified.

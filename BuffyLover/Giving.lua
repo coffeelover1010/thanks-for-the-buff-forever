@@ -9,11 +9,21 @@ local function ledger()
     return data
 end
 function addon.GivingMilestone(total)
-    if total > 0 and total % 100 == 0 then return 2 end
+    if total>0 and addon.GivingRank(total)>addon.GivingRank(total-1) then return 2 end
     if total > 0 and total % 10 == 0 then return 1 end
     return 0
 end
 local function public(v) return not issecretvalue or not issecretvalue(v) end
+function addon.OfferRankEmote(total)
+    if not BuffyLoverDB.rankEmote or not addon.OfferManualReply or addon.GivingMilestone(total)~=2 then return end
+    local name=GetUnitName and GetUnitName("player",true)
+    if not public(name) or type(name)~="string" then return end
+    local rank=addon.GivingRank(total)
+    local message="BuffyLove: "..name.." has obtained rank "..rank.." for buffing "..total.." players!"
+    addon.OfferManualReply("rank-"..rank,name,message,function()
+        return BuffyLoverDB.rankEmote and not InCombatLockdown()
+    end,function() end,{title="Buff rank "..rank.." earned",button="Share rank-up"})
+end
 local function plain(v,t) return public(v) and type(v)==t end
 local function readable()
     if InCombatLockdown() then return false end
@@ -79,7 +89,7 @@ function addon.GivingFloat(unit,guid,name,total,spellID)
             star:ClearAllPoints(); star:SetPoint("CENTER",f,"CENTER",0,0); star:Show()
         end
     end
-    if milestone==2 and BuffyLoverDB.givingSound~=false and PlaySound then pcall(PlaySound,888,"SFX") end
+    if milestone==2 and BuffyLoverDB.givingSound~=false then addon.PlayGivingSound() end
     local elapsed=0
     f:SetPoint("BOTTOM",plate or UIParent,plate and "TOP" or "CENTER",0,plate and 10 or 100)
     f:Show()
@@ -111,6 +121,16 @@ function addon.GivingCancel()
     pending={}
     for _,f in ipairs(floats) do hide(f) end
 end
+function addon.ResetGivingCount(confirmation)
+    if confirmation~="RESET" or InCombatLockdown() then return false end
+    addon.GivingCancel()
+    if addon.ClearManualReplies then addon.ClearManualReplies() end
+    seen={}
+    BuffyLoverDB.givingLifetime={total=0,people={}}
+    addon.lastGivenSpell=nil
+    if addon.RefreshSettings then addon.RefreshSettings() end
+    return true
+end
 local function confirm(record)
     if not BuffyLoverDB or not BuffyLoverDB.giving or not readable() then return end
     local own=UnitGUID("player")
@@ -130,6 +150,7 @@ local function confirm(record)
                             seen[guid]=true
                             local data=ledger()
                             data.people[name]=true; data.total=data.total+1
+                            addon.OfferRankEmote(data.total)
                             addon.lastGivenSpell=record.spell
                             if addon.UpdateGivingTotal then addon.UpdateGivingTotal() end
                             addon.GivingFloat(unit,guid,name,data.total,record.spell)

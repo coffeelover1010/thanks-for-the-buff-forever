@@ -64,8 +64,9 @@ assert(ns.GivingCount()==3)
 ns.GivingFloat=function() end
 recipient='one'; cast('reload'); assert(ns.GivingCount()==3)
 assert(ns.GivingMilestone(9)==0 and ns.GivingMilestone(10)==1)
-assert(ns.GivingMilestone(99)==0 and ns.GivingMilestone(100)==2 and ns.GivingMilestone(200)==2)
-widgets={}; sounds=0; ns.InitGivingStyle(BuffyLoverDB); BuffyLoverDB.showGiving=true
+assert(ns.GivingMilestone(99)==0 and ns.GivingMilestone(100)==1 and ns.GivingMilestone(200)==1)
+assert(ns.GivingMilestone(999)==0 and ns.GivingMilestone(512)==2 and ns.GivingMilestone(1204)==2)
+widgets={}; sounds=0; ns.InitGivingStyle(BuffyLoverDB); BuffyLoverDB.showGiving=true; BuffyLoverDB.showGivingRank=false
 local methods={}
 function methods:GetStringWidth() return 60 end
 function methods:SetText(v) self.text=v end
@@ -83,14 +84,16 @@ originalFloat('target','one','one Surname',9)
 local f=widgets[1]; assert(f.text.text=='9 toons buffed!'); f:OnUpdate(2); assert(not f.shown and rawget(f,'OnUpdate')==nil)
 originalFloat('target','one','one Surname',10); assert(sounds==0 and f.stars[1].shown and not f.stars[11].shown)
 f:OnUpdate(2)
-originalFloat('target','one','one Surname',100); assert(sounds==1 and f.stars[24].shown)
+originalFloat('target','one','one Surname',100); assert(sounds==0 and not f.stars[24].shown)
+f:OnUpdate(3)
+originalFloat('target','one','one Surname',512); assert(sounds==1 and f.stars[24].shown)
 f:OnUpdate(3)
 BuffyLoverDB.givingSound=false
-originalFloat('target','one','one Surname',200); assert(sounds==1)
+originalFloat('target','one','one Surname',1204); assert(sounds==1)
 f:OnUpdate(3)
 originalFloat('target','one','one Surname',201); assert(not f.stars[1].shown and f.text.text=='201 toons buffed!')
 ''')
-print('PASS: lifetime persistence/deduplication, 10/100 milestones, sparkle reuse/cleanup and optional sound.')
+print('PASS: lifetime persistence/deduplication, 10/1000 milestones, no 100-rank celebration and optional sound.')
 
 lua.execute('''
 local db={giving=false}; ns.InitGivingStyle(db)
@@ -122,3 +125,43 @@ assert(ns.GivingAppearance(7,secret)=='7')
 assert(ns.lastGivenSpell==1459)
 ''')
 print('PASS: actual spell icon, missing/secret/error fallback, latest confirmed spell.')
+
+lua.execute('''
+assert(ns.GivingRank(0)==0 and ns.GivingRank(31)==0)
+for rank,threshold in ipairs(ns.givingRankThresholds) do
+ assert(ns.GivingRank(threshold-1)==rank-1)
+ local got,icon=ns.GivingRank(threshold)
+ assert(got==rank and icon:find(string.format('PvPRank%02d',rank),1,true))
+ assert(ns.GivingMilestone(threshold)==2)
+end
+assert(ns.GivingRank(100001)==9 and ns.GivingRank(200000)==9)
+assert(ns.GivingRankSummary(100001):find('Highest rank reached.',1,true))
+assert(ns.GivingRankSummary(233):find('279 more unique players to rank 3.',1,true))
+BuffyLoverDB.showGivingRank=true
+assert(ns.GivingAppearance(128):find('PvPRank02',1,true))
+BuffyLoverDB.showGivingRank=false
+assert(not ns.GivingAppearance(128):find('PvPRank',1,true))
+local offered=0
+GetUnitName=function() return 'Tester' end
+ns.OfferManualReply=function(id,name,message,valid,report,labels)
+ offered=offered+1
+ assert(message=='BuffyLove: Tester has obtained rank 1 for buffing 32 players!')
+ assert(valid() and labels.button=='Share rank-up')
+end
+BuffyLoverDB.rankEmote=true
+ns.OfferRankEmote(31); assert(offered==0)
+ns.OfferRankEmote(32); assert(offered==1)
+BuffyLoverDB.rankEmote=false; ns.OfferRankEmote(32); assert(offered==1)
+''')
+print('PASS: all rank boundaries, maximum rank, badge toggle and rank emote wording/opt-out.')
+
+lua.execute('''
+BuffyLoverDB.givingLifetime={total=128,people={Tester=true}}
+local style=BuffyLoverDB.givingStyle
+assert(not ns.ResetGivingCount('reset') and ns.GivingCount()==128)
+combat=true; assert(not ns.ResetGivingCount('RESET') and ns.GivingCount()==128)
+combat=false; assert(ns.ResetGivingCount('RESET'))
+assert(ns.GivingCount()==0 and next(BuffyLoverDB.givingLifetime.people)==nil)
+assert(BuffyLoverDB.givingStyle==style)
+''')
+print('PASS: count reset requires exact confirmation, blocks combat and preserves settings.')

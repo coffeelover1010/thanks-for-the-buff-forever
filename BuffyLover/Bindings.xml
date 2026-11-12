@@ -1,0 +1,6 @@
+<Bindings>
+    <Binding name="CLICK BuffyLoverTargetBuff:LeftButton" header="BUFFYLOVER" category="BINDING_HEADER_BUFFYLOVER" />
+    <Binding name="BUFFYLOVER_TARGET_SOURCES" category="BINDING_HEADER_BUFFYLOVER">
+        BuffyLoverToggleTargetSources()
+    </Binding>
+</Bindings>
